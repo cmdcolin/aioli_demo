@@ -43,6 +43,7 @@ function App() {
   const [bamFile, setBamFile] = useState();
   const [file, setFile] = useState(params.file);
   const [loc, setLoc] = useState(params.loc);
+  const [error, setError] = useState();
   const forceUpdate = useForceUpdate();
 
   // this block initializes the samtools tool on Aioli
@@ -63,7 +64,11 @@ function App() {
       if (samtools) {
         const url = new URL(params.file, window.location);
         const bam = await Aioli.mount(`${url}`);
-        await Aioli.mount(`${url}.bai`);
+        if (params.file.endsWith("bam")) {
+          await Aioli.mount(`${url}.bai`);
+        } else if (params.file.endsWith("cram")) {
+          await Aioli.mount(`${url}.crai`);
+        }
         setBamFile(bam);
       }
     })();
@@ -98,32 +103,38 @@ function App() {
     const parsedLoc = parseLocString(params.loc);
     const bpPerPx = width / (parsedLoc.end - parsedLoc.start);
     const layout = new GranularRectLayout();
-    readData?.stdout.split("\n").forEach((row, index) => {
-      const [, flagString, , startString, , CIGAR] = row.split("\t");
-      const start = +startString;
-      const flags = +flagString;
-      const cigarOps = parseCigar(CIGAR);
-      let length = 0;
-      for (let i = 0; i < cigarOps.length; i += 2) {
-        const len = +cigarOps[i];
-        const op = cigarOps[i + 1];
-        if (op !== "I" && op !== "S" && op !== "H") {
-          length += len;
+    if (readData && !readData.stdout) {
+      setError(readData.stderr);
+    }
+    readData?.stdout
+      .split("\n")
+      .filter((f) => !!f)
+      .forEach((row, index) => {
+        const [, flagString, , startString, , CIGAR] = row.split("\t");
+        const start = +startString;
+        const flags = +flagString;
+        const cigarOps = parseCigar(CIGAR);
+        let length = 0;
+        for (let i = 0; i < cigarOps.length; i += 2) {
+          const len = +cigarOps[i];
+          const op = cigarOps[i + 1];
+          if (op !== "I" && op !== "S" && op !== "H") {
+            length += len;
+          }
         }
-      }
-      if (flags & 16) {
-        ctx.fillStyle = "#f99";
-      } else {
-        ctx.fillStyle = "#99f";
-      }
+        if (flags & 16) {
+          ctx.fillStyle = "#f99";
+        } else {
+          ctx.fillStyle = "#99f";
+        }
 
-      const end = start + length;
-      const leftPx = (start - parsedLoc.start) * bpPerPx;
-      const width = (end - start) * bpPerPx;
-      const y = layout.addRect(index, start, end, featHeight);
+        const end = start + length;
+        const leftPx = (start - parsedLoc.start) * bpPerPx;
+        const width = (end - start) * bpPerPx;
+        const y = layout.addRect(index, start, end, featHeight);
 
-      ctx.fillRect(leftPx, y, width, featHeight);
-    });
+        ctx.fillRect(leftPx, y, width, featHeight);
+      });
   }, [readData, params.loc]);
 
   // this block draws the rectangles
@@ -165,8 +176,9 @@ function App() {
       <form
         onSubmit={(event) => {
           setParams({ file, loc });
-          setMPileupData(undefined);
-          setReadData(undefined);
+          setMPileupData();
+          setReadData();
+          setError();
           forceUpdate();
           event.preventDefault();
         }}
@@ -191,6 +203,7 @@ function App() {
         <button type="submit">Submit</button>
       </form>
       {!readData ? <div className="dots">Loading...</div> : null}
+      {error ? <div style={{ color: "red" }}>{error}</div> : null}
       <canvas ref={snpcovref} width={width} height={snpcovheight} />
       <canvas ref={ref} width={width} height={height} />
     </div>

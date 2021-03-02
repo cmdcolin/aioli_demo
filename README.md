@@ -1,6 +1,6 @@
 # aioli_demo
 
-Demo using https://www.npmjs.com/package/@biowasm/aioli for rendering
+Demo using https://www.npmjs.com/package/@biowasm/aioli for data fetching and simple canvas rendering of reads and pileup
 
 ![](img/1.png)
 

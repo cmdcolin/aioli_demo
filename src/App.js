@@ -29,7 +29,6 @@ const snpcovheight = 100;
 const initialLoc = "1:20000-40000";
 const initialFile =
   "https://s3.amazonaws.com/1000genomes/phase3/data/HG00096/alignment/HG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam";
-const initialFasta = "https://jbrowse.org/genomes/hg19/fasta/hg19.fa.gz";
 
 function App() {
   const ref = useRef();
@@ -37,13 +36,11 @@ function App() {
   const [params, setParams] = useQueryParams({
     loc: withDefault(StringParam, initialLoc),
     file: withDefault(StringParam, initialFile),
-    fasta: withDefault(StringParam, initialFasta),
   });
   const [readData, setReadData] = useState();
   const [mpileupData, setMPileupData] = useState();
   const [samtools, setSamtools] = useState();
   const [bamFile, setBamFile] = useState();
-  const [fastaFile, setFastaFile] = useState();
   const [file, setFile] = useState(params.file);
   const [loc, setLoc] = useState(params.loc);
   const forceUpdate = useForceUpdate();
@@ -65,13 +62,9 @@ function App() {
       // Aioli/samtools interface
       if (samtools) {
         const url = new URL(params.file, window.location);
-        const fasta = await Aioli.mount(`${params.fasta}`);
         const bam = await Aioli.mount(`${url}`);
         await Aioli.mount(`${url}.bai`);
-
-        console.log({ fasta });
         setBamFile(bam);
-        setFastaFile(fasta);
       }
     })();
   }, [params.file, samtools, params.fasta]);
@@ -89,14 +82,14 @@ function App() {
   // this block performs a `samtools mpileup` query
   useEffect(() => {
     (async () => {
-      if (bamFile && samtools && fastaFile) {
+      if (bamFile && samtools) {
         const d = await samtools.exec(
           `mpileup -r ${params.loc} ${bamFile.path}`
         );
         setMPileupData(d);
       }
     })();
-  }, [bamFile, params.loc, samtools, fastaFile]);
+  }, [bamFile, params.loc, samtools]);
 
   // this block draws the rectangles
   useEffect(() => {
@@ -144,7 +137,7 @@ function App() {
       mpileupData.stdout.split("\n").forEach((row) => {
         const [, , , numReadsString] = row.split("\t");
         const numReads = +numReadsString;
-        maxHeight = Math.max(maxHeight, numReads);
+        maxHeight = Math.max(maxHeight, numReads || 0);
       });
       mpileupData.stdout.split("\n").forEach((row) => {
         const [, startString, , numReadsString] = row.split("\t");
@@ -156,7 +149,7 @@ function App() {
 
         ctx.fillStyle = "#ccc";
         const h = (numReads / maxHeight) * snpcovheight;
-        ctx.fillRect(leftPx, snpcovheight - h, width, h);
+        ctx.fillRect(leftPx, snpcovheight - h, width + 0.9, h);
       });
       ctx.fillStyle = "black";
       ctx.fillText(`[0, ${maxHeight}]`, 0, 20);
@@ -165,24 +158,30 @@ function App() {
 
   return (
     <div>
-      <p>Enter a BAM file URL:</p>
+      <p>
+        Enter BAM/CRAM file and location. This app uses @biowasm/aioli's
+        packaging of samtools to run samtools view and samtools mpileup
+      </p>
       <form
         onSubmit={(event) => {
           setParams({ file, loc });
-          setBamFile(undefined);
+          setMPileupData(undefined);
+          setReadData(undefined);
           forceUpdate();
           event.preventDefault();
         }}
       >
-        <label htmlFor="url" />
+        <label htmlFor="url">URL: </label>
         <input
           id="url"
           type="text"
           value={file}
+          style={{ minWidth: "75%" }}
           onChange={(event) => setFile(event.target.value)}
         />
 
-        <label htmlFor="loc" />
+        <br />
+        <label htmlFor="loc">Location: </label>
         <input
           id="loc"
           type="text"

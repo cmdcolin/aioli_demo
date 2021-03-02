@@ -139,30 +139,28 @@ function App() {
     ctx.clearRect(0, 0, width, snpcovheight);
     const parsedLoc = parseLocString(params.loc);
     const bpPerPx = width / (parsedLoc.end - parsedLoc.start);
-    mpileupData?.stdout.split("\n").forEach((row) => {
-      const [, startString, , numReadsString, bases] = row.split("\t");
-      const start = +startString;
-      const numReads = +numReadsString;
-      const leftPx = (start - parsedLoc.start) * bpPerPx;
-      const end = start + 1;
-      const width = (end - start) * bpPerPx;
+    let maxHeight = 0;
+    if (mpileupData) {
+      mpileupData.stdout.split("\n").forEach((row) => {
+        const [, , , numReadsString] = row.split("\t");
+        const numReads = +numReadsString;
+        maxHeight = Math.max(maxHeight, numReads);
+      });
+      mpileupData.stdout.split("\n").forEach((row) => {
+        const [, startString, , numReadsString] = row.split("\t");
+        const start = +startString;
+        const numReads = +numReadsString;
+        const leftPx = (start - parsedLoc.start) * bpPerPx;
+        const end = start + 1;
+        const width = (end - start) * bpPerPx;
 
-      ctx.fillStyle = "#ccc";
-      ctx.fillRect(leftPx, snpcovheight - numReads, width, numReads);
-      const map = {};
-      bases?.split("").forEach((base) => {
-        const b = base.toUpperCase();
-        map[b] = (map[b] || 0) + 1;
+        ctx.fillStyle = "#ccc";
+        const h = (numReads / maxHeight) * snpcovheight;
+        ctx.fillRect(leftPx, snpcovheight - h, width, h);
       });
-      let curr = 0;
-      const colors = { A: "green", C: "blue", G: "yellow", T: "red" };
-      console.log({ map });
-      ["A", "C", "G", "T"].forEach((base) => {
-        curr += map[base];
-        ctx.fillStyle = colors[base];
-        ctx.fillRect(leftPx, snpcovheight - curr, 1, map[base]);
-      });
-    });
+      ctx.fillStyle = "black";
+      ctx.fillText(`[0, ${maxHeight}]`, 0, 20);
+    }
   }, [mpileupData, params.loc]);
 
   return (

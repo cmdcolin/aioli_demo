@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Aioli } from "@biowasm/aioli";
+import GranularRectLayout from "./layout";
 
 function parseLocString(locString) {
   const [refId, rest] = locString.split(":");
@@ -7,26 +8,27 @@ function parseLocString(locString) {
   return { refId: +refId - 1, start: +start, end: +end };
 }
 
-export function parseCigar(cigar: string) {
+export function parseCigar(cigar) {
   return (cigar || "").split(/([MIDNSHPX=])/);
 }
 
 const featHeight = 10;
-const spacing = 1;
+// const spacing = 1;
 const width = 1800;
 const height = 1000;
-const initialLoc = "ctgA:1-1000";
+const initialLoc = "ctgA:1-10000";
 const initialFile = "volvox-sorted.bam";
 function App() {
-  const [data, setData] = useState();
   const ref = useRef();
-
+  const [data, setData] = useState();
   const [file, setFile] = useState(initialFile);
   const [loc, setLoc] = useState(initialLoc);
   const [fileVal, setFileVal] = useState(initialFile);
   const [locVal, setLocVal] = useState(initialLoc);
   const [samtools, setSamtools] = useState();
+  const [bamFile, setBamFile] = useState();
 
+  // this block initializes the samtools tool on Aioli
   useEffect(() => {
     (async () => {
       const tool = new Aioli("samtools/1.10");
@@ -35,30 +37,43 @@ function App() {
     })();
   }, []);
 
+  // this block "mounts" the BAM file on the Aioli FS
   useEffect(() => {
     (async () => {
+      // wait on "samtools" being initialized even though "samtools" is not
+      // used here, because it must mount something internally in the
+      // Aioli/samtools interface
       if (samtools) {
         const url = new URL(fileVal, window.location);
         const bam = await Aioli.mount(`${url}`);
-        const bai = await Aioli.mount(`${url}.bai`);
-        const d = await samtools.exec(`view -q 20 ${bam.path} ${locVal}`);
+        await Aioli.mount(`${url}.bai`);
+        setBamFile(bam);
+      }
+    })();
+  }, [fileVal, samtools]);
+
+  // this block performs a query on the bamFile using samtools
+  useEffect(() => {
+    (async () => {
+      if (bamFile && samtools) {
+        const d = await samtools.exec(`view -q 20 ${bamFile.path} ${locVal}`);
         setData(d);
       }
     })();
-  }, [samtools, fileVal, locVal]);
+  }, [bamFile, locVal, samtools]);
 
+  // this block draws the rectangles
   useEffect(() => {
     const ctx = ref.current.getContext("2d");
     ctx.clearRect(0, 0, width, height);
+    const { start, end } = parseLocString(locVal);
+    const bpPerPx = width / (end - start);
+    const layout = new GranularRectLayout();
     if (data) {
       const rows = data?.stdout.split("\n");
 
-      const { start, end } = parseLocString(locVal);
-      const bpPerPx = width / (end - start);
       rows.forEach((row, index) => {
-        const [name, flagString, refName, startString, mapq, CIGAR] = row.split(
-          "\t"
-        );
+        const [, flagString, , startString, , CIGAR] = row.split("\t");
         const start = +startString;
         const flags = +flagString;
         const cigarOps = parseCigar(CIGAR);
@@ -70,21 +85,22 @@ function App() {
             length += len;
           }
         }
-        if (flags & 2) {
-          ctx.fillStyle = "red";
+        if (flags & 16) {
+          ctx.fillStyle = "#f99";
         } else {
-          ctx.fillStyle = "blue";
+          ctx.fillStyle = "#99f";
         }
-        console.log(start);
-        ctx.fillRect(
-          +start * bpPerPx,
-          index * (featHeight + spacing),
-          (start + length) * bpPerPx,
-          featHeight
-        );
+
+        const end = start + length;
+        const leftPx = start * bpPerPx;
+        const width = (end - start) * bpPerPx;
+        const y = layout.addRect(index, start, end, featHeight);
+
+        ctx.fillRect(leftPx, y, width, featHeight);
       });
     }
   }, [data, locVal]);
+
   return (
     <div>
       <p>Enter a BAM file URL:</p>
@@ -92,6 +108,7 @@ function App() {
         onSubmit={(event) => {
           setFileVal(file);
           setLocVal(loc);
+          setBamFile(undefined);
           event.preventDefault();
         }}
       >

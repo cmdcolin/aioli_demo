@@ -1,13 +1,13 @@
 // minimum excess size of the array at which we garbage collect
 const minSizeToBotherWith = 10000;
-const maxFeaturePitchWidth = 20000;
+const maxFeaturePitchWidth = 200000;
 
 // a single row in the layout
 class LayoutRow {
   constructor(rowNumber) {
     this.rowNumber = rowNumber;
     this.padding = 1;
-    this.sizeLimit = 1000000;
+    this.sizeLimit = 10000000;
 
     // this.offset is the offset of the bits array relative to the genomic coordinates
     //      (modified by pitchX, but we don't know that in this class)

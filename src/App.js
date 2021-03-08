@@ -111,7 +111,7 @@ function App() {
       .filter((f) => !!f)
       .forEach((row, index) => {
         const [, flagString, , startString, , CIGAR] = row.split("\t");
-        const start = +startString;
+        const start = +startString - 1;
         const flags = +flagString;
         const cigarOps = parseCigar(CIGAR);
         let length = 0;
@@ -152,7 +152,7 @@ function App() {
       });
       mpileupData.stdout.split("\n").forEach((row) => {
         const [, startString, , numReadsString] = row.split("\t");
-        const start = +startString;
+        const start = +startString - 1;
         const numReads = +numReadsString;
         const leftPx = (start - parsedLoc.start) * bpPerPx;
         const end = start + 1;

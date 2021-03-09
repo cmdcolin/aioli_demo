@@ -32,6 +32,7 @@ const initialFile =
 
 function App() {
   const ref = useRef();
+  const fileRef = useRef();
   const snpcovref = useRef();
   const [params, setParams] = useQueryParams({
     loc: withDefault(StringParam, initialLoc),
@@ -45,6 +46,7 @@ function App() {
   const [loc, setLoc] = useState(params.loc);
   const [error, setError] = useState();
   const forceUpdate = useForceUpdate();
+  const [files, setFiles] = useState();
 
   // this block initializes the samtools tool on Aioli
   useEffect(() => {
@@ -62,17 +64,29 @@ function App() {
       // used here, because it must mount something internally in the
       // Aioli/samtools interface
       if (samtools) {
-        const url = new URL(params.file, window.location);
-        const bam = await Aioli.mount(`${url}`);
-        if (params.file.endsWith("bam")) {
-          await Aioli.mount(`${url}.bai`);
-        } else if (params.file.endsWith("cram")) {
-          await Aioli.mount(`${url}.crai`);
+        if (files) {
+          let bamIdx =
+            files[0].name.endsWith("bam") || files[0].name.endsWith("cram")
+              ? 0
+              : 1;
+
+          const bam = await Aioli.mount(files[bamIdx]);
+          await Aioli.mount(files[Number(!bamIdx)]);
+          setBamFile(bam);
+        } else {
+          const url = new URL(params.file, window.location);
+          const bam = await Aioli.mount(`${url}`);
+          if (params.file.endsWith("bam")) {
+            await Aioli.mount(`${url}.bai`);
+          } else if (params.file.endsWith("cram")) {
+            await Aioli.mount(`${url}.crai`);
+          }
+
+          setBamFile(bam);
         }
-        setBamFile(bam);
       }
     })();
-  }, [params.file, samtools, params.fasta]);
+  }, [params.file, samtools, params.fasta, files]);
 
   // this block performs a `samtools view` query
   useEffect(() => {
@@ -123,9 +137,9 @@ function App() {
           }
         }
         if (flags & 16) {
-          ctx.fillStyle = "#f99";
-        } else {
           ctx.fillStyle = "#99f";
+        } else {
+          ctx.fillStyle = "#f99";
         }
 
         const end = start + length;
@@ -176,6 +190,9 @@ function App() {
       <form
         onSubmit={(event) => {
           setParams({ file, loc });
+          if (fileRef.current.files.length) {
+            setFiles(fileRef.current.files);
+          }
           setMPileupData();
           setReadData();
           setError();
@@ -191,6 +208,9 @@ function App() {
           style={{ minWidth: "75%" }}
           onChange={(event) => setFile(event.target.value)}
         />
+        <br />
+        <label htmlFor="file">File (import both BAM and BAI): </label>
+        <input id="file" ref={fileRef} type="file" multiple="multiple" />
 
         <br />
         <label htmlFor="loc">Location: </label>

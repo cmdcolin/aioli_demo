@@ -7,3 +7,5 @@ Demo using https://www.npmjs.com/package/@biowasm/aioli for data fetching and si
 Example
 
 http://cmdcolin.github.io/aioli_demo/?file=https%3A%2F%2Fs3.amazonaws.com%2F1000genomes%2Fphase3%2Fdata%2FHG00096%2Falignment%2FHG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam&loc=1%3A10000-20000
+
+See also https://github.com/cmdcolin/jbrowse-plugin-biowasm

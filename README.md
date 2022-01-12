@@ -11,6 +11,7 @@ http://cmdcolin.github.io/aioli_demo/?file=https%3A%2F%2Fs3.amazonaws.com%2F1000
 
 Same thing with pure js bam parser https://github.com/cmdcolin/gmodbam_demo
 
+Downsides compared to the pure js: parses the text output so is a bit slower than the plain gmodbam_demo, and also hits CORS errors on some files that gmodbam does not
 
 See also https://github.com/cmdcolin/jbrowse-plugin-biowasm 
 
